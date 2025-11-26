@@ -2,11 +2,12 @@ import express from "express";
 import dotenv from "dotenv";
 import http from "http";
 import { WebSocketServer } from "ws";
-import { twiml } from "twilio";
+import twilio from "twilio";
 import OpenAI from "openai";
 
 dotenv.config();
 
+const { twiml } = twilio;
 const VoiceResponse = twiml.VoiceResponse;
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
