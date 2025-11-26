@@ -7,29 +7,32 @@ import OpenAI from "openai";
 
 dotenv.config();
 
+// Twilio setup
 const { twiml } = twilio;
 const VoiceResponse = twiml.VoiceResponse;
+
+// OpenAI setup
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const app = express();
 const server = http.createServer(app);
 
-// Create WebSocket server but don’t bind directly — we’ll route to /voice-stream
+// WebSocket server, routed to /voice-stream
 const wss = new WebSocketServer({ noServer: true });
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// Twilio will request this when the call starts
+// Twilio webhook: returns TwiML to start streaming audio
 app.post("/twiml", (req, res) => {
-  const twiml = new VoiceResponse();
-  twiml.say("Connecting you to GPT...");
-  twiml.connect().stream({
+  const response = new VoiceResponse();
+  response.say("Connecting you to GPT...");
+  response.connect().stream({
     url: "wss://gpt-phone-call.onrender.com/voice-stream"
   });
 
   res.type("text/xml");
-  res.send(twiml.toString());
+  res.send(response.toString());
 });
 
 // Route WebSocket connections to /voice-stream
@@ -49,8 +52,8 @@ wss.on("connection", (ws) => {
     try {
       const data = JSON.parse(msg.toString());
 
-      // Twilio sends "media" events with base64 audio payloads
       if (data.event === "media") {
+        // Decode base64 audio payload
         const audioBuffer = Buffer.from(data.media.payload, "base64");
 
         // 1. Transcribe audio with Whisper
