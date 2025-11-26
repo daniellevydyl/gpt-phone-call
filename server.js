@@ -12,7 +12,9 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
+
+// Create WebSocket server but don’t bind directly — we’ll route to /voice-stream
+const wss = new WebSocketServer({ noServer: true });
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
@@ -29,38 +31,54 @@ app.post("/twiml", (req, res) => {
   res.send(twiml.toString());
 });
 
+// Route WebSocket connections to /voice-stream
+server.on("upgrade", (req, socket, head) => {
+  if (req.url === "/voice-stream") {
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit("connection", ws, req);
+    });
+  }
+});
+
 // Handle Twilio audio stream
 wss.on("connection", (ws) => {
   console.log("🔊 Twilio stream connected");
 
   ws.on("message", async (msg) => {
     try {
-      // 1. Transcribe audio with Whisper
-      const transcription = await openai.audio.transcriptions.create({
-        file: msg, // audio buffer from Twilio
-        model: "whisper-1"
-      });
+      const data = JSON.parse(msg.toString());
 
-      console.log("📝 User said:", transcription.text);
+      // Twilio sends "media" events with base64 audio payloads
+      if (data.event === "media") {
+        const audioBuffer = Buffer.from(data.media.payload, "base64");
 
-      // 2. Send text to GPT
-      const gptResponse = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: transcription.text }]
-      });
+        // 1. Transcribe audio with Whisper
+        const transcription = await openai.audio.transcriptions.create({
+          file: audioBuffer,
+          model: "whisper-1"
+        });
 
-      const reply = gptResponse.choices[0].message.content;
-      console.log("🤖 GPT replied:", reply);
+        console.log("📝 User said:", transcription.text);
 
-      // 3. Convert GPT reply to speech
-      const speech = await openai.audio.speech.create({
-        model: "gpt-4o-mini-tts",
-        voice: "alloy",
-        input: reply
-      });
+        // 2. Send text to GPT
+        const gptResponse = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: transcription.text }]
+        });
 
-      // 4. Send audio back to Twilio
-      ws.send(speech);
+        const reply = gptResponse.choices[0].message.content;
+        console.log("🤖 GPT replied:", reply);
+
+        // 3. Convert GPT reply to speech
+        const speech = await openai.audio.speech.create({
+          model: "gpt-4o-mini-tts",
+          voice: "alloy",
+          input: reply
+        });
+
+        // 4. Send audio back to Twilio
+        ws.send(speech);
+      }
     } catch (err) {
       console.error("❌ Error handling audio:", err);
     }
