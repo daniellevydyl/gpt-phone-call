@@ -14,7 +14,7 @@ async function triggerGPTCall() {
     const call = await client.calls.create({
       to: process.env.ISRAEL_NUMBER,          // your phone number
       from: process.env.TWILIO_PHONE_NUMBER,  // your Twilio number
-      url: "http://localhost:3000/twiml"      // local server endpoint
+      url: "https://gpt-phone-call.onrender.com/twiml"      // local server endpoint
       // If deployed, replace with: "https://gpt-phone-call.onrender.com/twiml"
     });
 
