@@ -9,7 +9,7 @@ const { twiml } = twilio;
 const VoiceResponse = twiml.VoiceResponse;
 
 // Gemini setup - pass API key as an object and use a valid model name
-const genAI = new GoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
+const genAI = new GoogleGenerativeAI({ process.env.GEMINI_API_KEY });
 const model = genAI.getGenerativeModel({ model: "models/gemini-1.5-pro" });
 
 const app = express();
