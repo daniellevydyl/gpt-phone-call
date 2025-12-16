@@ -8,60 +8,75 @@ dotenv.config();
 const { twiml } = twilio;
 const VoiceResponse = twiml.VoiceResponse;
 
-// Gemini setup - pass API key as an object and use a valid model name
+// Gemini setup
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-001" });
+
+// FIX 1: Define the System Instruction HERE, not in the history array
+// FIX 2: Use the stable model version '001'
+const model = genAI.getGenerativeModel({ 
+  model: "gemini-1.5-flash-001",
+  systemInstruction: "You are a helpful assistant speaking over a phone call. Keep replies short (1-2 sentences) and clear. Do not use emojis."
+});
 
 const app = express();
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// Simple in-memory session store (per call)
+// In-memory session store
 const sessions = new Map();
 
-// Entry point: Twilio hits this when the call starts
+// Entry point
 app.post("/twiml", (req, res) => {
   const response = new VoiceResponse();
-  response.say("Connecting you to Gemini. Ask me anything after the beep.");
+  response.say("Connecting you to Gemini. Ask me anything.");
   response.gather({
     input: "speech",
     action: "/gather",
     method: "POST",
     timeout: 5,
     speechTimeout: "auto"
-  }).say("I'm listening...");
-  response.redirect("/twiml"); // loop if silence
+  });
   res.type("text/xml").send(response.toString());
 });
 
 // Handle speech input
 app.post("/gather", async (req, res) => {
   const callSid = req.body.CallSid;
-  const userText = req.body.SpeechResult || "";
+  const userText = req.body.SpeechResult; 
 
-  // Initialize or append to conversation
-  const history = sessions.get(callSid) || [
-    { role: "system", content: "You are a helpful assistant speaking over a phone call. Keep replies short and clear." }
-  ];
-  history.push({ role: "user", content: userText });
+  const response = new VoiceResponse();
 
-  // Ask Gemini
-  let reply = "I didn’t catch that. Could you repeat?";
-  try {
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: userText }]}]
-    });
-    // result.response.text() may be a method - keep same usage
-    reply = result.response?.text?.() || (result?.candidates?.[0]?.content?.text || reply);
-  } catch (err) {
-    console.error("Gemini error:", err);
+  // FIX 3: Handle Silence (Prevents Crash)
+  if (!userText) {
+    response.say("I didn't hear anything. Please say that again.");
+    response.gather({ input: "speech", action: "/gather", method: "POST" });
+    return res.type("text/xml").send(response.toString());
   }
 
-  history.push({ role: "assistant", content: reply });
-  sessions.set(callSid, history);
+  // Get history or start new
+  // Note: For simplicity, we are sending a "Chat Session" history
+  let chatSession = sessions.get(callSid);
+  
+  // Initialize chat if it doesn't exist
+  if (!chatSession) {
+    chatSession = model.startChat({
+      history: [], // History starts empty, system instruction is handled by the model config above
+    });
+    sessions.set(callSid, chatSession);
+  }
 
-  // Respond with TwiML
-  const response = new VoiceResponse();
+  let reply = "I'm having trouble connecting. One moment.";
+
+  try {
+    // FIX 4: Use 'sendMessage' to automatically handle history
+    const result = await chatSession.sendMessage(userText);
+    reply = result.response.text();
+  } catch (err) {
+    console.error("Gemini Error:", err); // Check your Render logs for this!
+    reply = "I am sorry, I am having a technical issue.";
+  }
+
+  // Respond to caller
   response.say(reply);
   response.gather({
     input: "speech",
@@ -69,19 +84,18 @@ app.post("/gather", async (req, res) => {
     method: "POST",
     timeout: 5,
     speechTimeout: "auto"
-  }).say("What would you like to ask next?");
-  response.redirect("/twiml");
+  });
+  
   res.type("text/xml").send(response.toString());
 });
 
-// Cleanup when call ends
+// Cleanup
 app.post("/hangup", (req, res) => {
   sessions.delete(req.body.CallSid);
   res.type("text/xml").send(new VoiceResponse().say("Goodbye.").toString());
 });
 
-// Use Render's PORT environment variable
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server running with Gemini on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
