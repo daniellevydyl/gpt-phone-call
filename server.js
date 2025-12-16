@@ -10,7 +10,7 @@ const VoiceResponse = twiml.VoiceResponse;
 
 // Gemini setup
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+const model = genAI.getGenerativeModel({ model: "gemini-1.5 pro" });
 
 const app = express();
 app.use(express.urlencoded({ extended: true }));
