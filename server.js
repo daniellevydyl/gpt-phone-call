@@ -8,9 +8,9 @@ dotenv.config();
 const { twiml } = twilio;
 const VoiceResponse = twiml.VoiceResponse;
 
-// Gemini setup
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5 pro" });
+// Gemini setup - pass API key as an object and use a valid model name
+const genAI = new GoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
+const model = genAI.getGenerativeModel({ model: "models/gemini-1.5-pro" });
 
 const app = express();
 app.use(express.urlencoded({ extended: true }));
@@ -51,7 +51,8 @@ app.post("/gather", async (req, res) => {
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: userText }]}]
     });
-    reply = result.response.text();
+    // result.response.text() may be a method - keep same usage
+    reply = result.response?.text?.() || (result?.candidates?.[0]?.content?.text || reply);
   } catch (err) {
     console.error("Gemini error:", err);
   }
@@ -79,6 +80,8 @@ app.post("/hangup", (req, res) => {
   res.type("text/xml").send(new VoiceResponse().say("Goodbye.").toString());
 });
 
-app.listen(process.env.PORT || 3000, () => {
-  console.log("🚀 Server running with Gemini");
+// Use Render's PORT environment variable
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running with Gemini on port ${PORT}`);
 });
