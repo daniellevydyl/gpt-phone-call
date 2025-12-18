@@ -15,9 +15,9 @@ const VoiceResponse = twiml.VoiceResponse;
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
-  model: "gemini-1.5-flash",
+  model: "gemini-2.5-flash",
   systemInstruction:
-    "You are a helpful assistant speaking over a phone call. Keep replies short and clear. Do not use emojis."
+    "You are a helpful assistant speaking over a phone call act like a regeler gemini intelagent model. Keep replies short'ish , clear, and natural. No emojis."
 });
 
 const app = express();
