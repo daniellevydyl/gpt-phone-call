@@ -1,4 +1,3 @@
-
 import express from "express";
 import dotenv from "dotenv";
 import twilio from "twilio";
@@ -17,7 +16,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
   model: "gemini-2.5-flash",
   systemInstruction:
-    "You are a helpful assistant speaking over a phone call act like a regeler gemini intelagent model. Keep replies short'ish , clear, and natural. No emojis."
+    "אתה עוזר קולי חכם המדבר בטלפון. ענה תמיד בעברית בלבד. תשובות קצרות, ברורות וטבעיות. ללא אימוג'ים."
 });
 
 const app = express();
@@ -31,9 +30,13 @@ app.post("/twiml", (req, res) => {
   console.log("📞 /twiml hit");
 
   const response = new VoiceResponse();
-  response.say("Connecting you to Gemini. Ask me anything.");
+  response.say(
+    { language: "he-IL", voice: "Polly.Carmit" },
+    "מחבר אותך לג׳מיני. אפשר לשאול כל שאלה."
+  );
   response.gather({
     input: "speech",
+    language: "he-IL",
     action: "/gather",
     method: "POST",
     timeout: 5,
@@ -49,8 +52,16 @@ app.post("/gather", async (req, res) => {
   const userText = req.body.SpeechResult;
 
   if (!userText) {
-    response.say("I did not hear anything. Please try again.");
-    response.gather({ input: "speech", action: "/gather", method: "POST" });
+    response.say(
+      { language: "he-IL", voice: "Polly.Carmit" },
+      "לא שמעתי כלום. בבקשה נסה שוב."
+    );
+    response.gather({
+      input: "speech",
+      language: "he-IL",
+      action: "/gather",
+      method: "POST"
+    });
     return res.type("text/xml").send(response.toString());
   }
 
@@ -60,7 +71,7 @@ app.post("/gather", async (req, res) => {
     sessions.set(callSid, chat);
   }
 
-  let reply = "Sorry, something went wrong.";
+  let reply = "אירעה שגיאה.";
   try {
     const result = await chat.sendMessage(userText);
     reply = result.response.text();
@@ -68,9 +79,13 @@ app.post("/gather", async (req, res) => {
     console.error("Gemini error:", e);
   }
 
-  response.say(reply);
+  response.say(
+    { language: "he-IL", voice: "Polly.Carmit" },
+    reply
+  );
   response.gather({
     input: "speech",
+    language: "he-IL",
     action: "/gather",
     method: "POST",
     timeout: 5,
@@ -82,3 +97,4 @@ app.post("/gather", async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Running on ${PORT}`));
+
