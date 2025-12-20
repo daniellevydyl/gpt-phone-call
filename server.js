@@ -31,12 +31,12 @@ app.post("/twiml", (req, res) => {
 
   const response = new VoiceResponse();
   response.say(
-    { language: "he-IL", voice: "Polly.Carmit" },
+    { language: "iw-IL" },
     "מחבר אותך לג׳מיני. אפשר לשאול כל שאלה."
   );
   response.gather({
     input: "speech",
-    language: "he-IL",
+    language: "iw-IL",
     action: "/gather",
     method: "POST",
     timeout: 5,
@@ -53,12 +53,12 @@ app.post("/gather", async (req, res) => {
 
   if (!userText) {
     response.say(
-      { language: "he-IL", voice: "Polly.Carmit" },
+      { language: "iw-IL", voice: "Polly.Carmit" },
       "לא שמעתי כלום. בבקשה נסה שוב."
     );
     response.gather({
       input: "speech",
-      language: "he-IL",
+      language: "iw-IL",
       action: "/gather",
       method: "POST"
     });
@@ -85,7 +85,7 @@ app.post("/gather", async (req, res) => {
   );
   response.gather({
     input: "speech",
-    language: "he-IL",
+    language: "iw-IL",
     action: "/gather",
     method: "POST",
     timeout: 5,
