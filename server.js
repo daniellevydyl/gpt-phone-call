@@ -31,12 +31,11 @@ app.post("/twiml", (req, res) => {
 
   const response = new VoiceResponse();
   response.say(
-    { language: "iw-IL", voice: "Polly.Carmit" },
+    { voice: "Polly.Carmit" },
     "מחבר אותך לג׳מיני. אפשר לשאול כל שאלה."
   );
   response.gather({
     input: "speech",
-    language: "iw-IL",
     action: "/gather",
     method: "POST",
     timeout: 5,
@@ -53,12 +52,11 @@ app.post("/gather", async (req, res) => {
 
   if (!userText) {
     response.say(
-      { language: "iw-IL", voice: "Polly.Carmit" },
+      { voice: "Polly.Carmit" },
       "לא שמעתי כלום. בבקשה נסה שוב."
     );
     response.gather({
       input: "speech",
-      language: "iw-IL",
       action: "/gather",
       method: "POST"
     });
@@ -80,12 +78,11 @@ app.post("/gather", async (req, res) => {
   }
 
   response.say(
-    { language: "he-IL", voice: "Polly.Carmit" },
+    { voice: "Polly.Carmit" },
     reply
   );
   response.gather({
     input: "speech",
-    language: "iw-IL",
     action: "/gather",
     method: "POST",
     timeout: 5,
@@ -97,4 +94,3 @@ app.post("/gather", async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Running on ${PORT}`));
-
