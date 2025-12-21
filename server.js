@@ -12,13 +12,13 @@ process.on("unhandledRejection", err => console.error("UNHANDLED:", err));
 const { twiml } = twilio;
 const VoiceResponse = twiml.VoiceResponse;
 
-// FIXED: Using a valid high-end model name
+// FIXED: Using Gemini 1.5 Pro (The current high-end frontier model)
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
   model: "gemini-1.5-pro", 
   systemInstruction:
-    "אתה עוזר אישי אינטליגנטי. המשתמש מדבר אנגלית. ענה תמיד בעברית בלבד. " +
-    "תשובות קצרות, ללא סימוני טקסט, ללא כוכביות, וללא אימוג'י."
+    "You are a high-end AI assistant. The user will speak in English. You must ALWAYS respond in HEBREW. " +
+    "Keep responses short, natural, and professional. Do NOT use emojis, asterisks, or any markdown symbols."
 });
 
 const app = express();
@@ -27,36 +27,47 @@ app.use(express.json());
 
 const sessions = new Map();
 
-// 1. Initial Entry Point
+/**
+ * FIXED: This function removes asterisks (*) and other symbols 
+ * that cause Twilio Error 13520.
+ */
+function cleanTextForTwilio(text) {
+  return text
+    .replace(/\*/g, "")  // Remove asterisks
+    .replace(/#/g, "")   // Remove hashtags
+    .replace(/_/g, "")   // Remove underscores
+    .trim();
+}
+
 app.post("/twiml", (req, res) => {
   const response = new VoiceResponse();
   
-  // FIXED: Changed language to he-IL (Standard for Polly.Carmit)
+  // Respond in Hebrew
   response.say(
     { language: "he-IL", voice: "Polly.Carmit" },
-    "שלום, אני מקשיב באנגלית ואענה לך בעברית. במה אוכל לעזור?"
+    "שלום, אני מופעל על ידי ג'מיני פרו. אני מקשיב באנגלית ואענה לך בעברית."
   );
 
+  // FIXED: Listen in English (en-US) to solve Error 13512
   response.gather({
     input: "speech",
     action: "/gather",
     method: "POST",
     timeout: 5,
     speechTimeout: "auto",
-    language: "en-US" // Listening in English
+    language: "en-US" 
   });
 
   res.type("text/xml").send(response.toString());
 });
 
-// 2. Processing Loop
 app.post("/gather", async (req, res) => {
   const response = new VoiceResponse();
   const callSid = req.body.CallSid;
   const userText = req.body.SpeechResult;
 
   if (!userText) {
-    response.say({ language: "he-IL", voice: "Polly.Carmit" }, "לא שמעתי, אפשר לחזור על זה?");
+    response.say({ language: "he-IL", voice: "Polly.Carmit" }, "לא שמעתי, תוכל לחזור על השאלה?");
     response.gather({
       input: "speech",
       action: "/gather",
@@ -66,7 +77,7 @@ app.post("/gather", async (req, res) => {
     return res.type("text/xml").send(response.toString());
   }
 
-  console.log(`User Input (EN): ${userText}`);
+  console.log(`User (EN): ${userText}`);
 
   let chat = sessions.get(callSid);
   if (!chat) {
@@ -74,27 +85,23 @@ app.post("/gather", async (req, res) => {
     sessions.set(callSid, chat);
   }
 
-  let reply = "סליחה, יש תקלה קטנה."; 
+  let reply = "סליחה, יש לי תקלה טכנית.";
   try {
     const result = await chat.sendMessage(userText);
-    reply = result.response.text();
+    const rawReply = result.response.text();
     
-    // CLEANUP: Remove any asterisks or special markdown that Gemini often adds
-    // This prevents Error 13520 (Invalid Text)
-    reply = reply.replace(/[*#_]/g, ""); 
+    // FIXED: Sanitize the text to solve Error 13520
+    reply = cleanTextForTwilio(rawReply);
     
-    if (!reply || reply.trim().length === 0) reply = "לא הצלחתי למצוא תשובה.";
-    
-    console.log(`Gemini Output (HE): ${reply}`);
+    console.log(`AI (HE): ${reply}`);
   } catch (e) {
     console.error("Gemini Error:", e);
-    reply = "סליחה, המנוע של ג'מיני לא זמין כרגע.";
   }
 
-  // FIXED: Changed language to he-IL
+  // Voice output in Hebrew
   response.say({ language: "he-IL", voice: "Polly.Carmit" }, reply);
 
-  // Continue gathering
+  // FIXED: Continue listening in English
   response.gather({
     input: "speech",
     action: "/gather",
@@ -108,4 +115,4 @@ app.post("/gather", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 High-End AI Server running on port ${PORT}`));
