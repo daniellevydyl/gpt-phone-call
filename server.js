@@ -5,20 +5,17 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 dotenv.config();
 
-// Critical Error Handling
-process.on("uncaughtException", err => console.error("UNCAUGHT:", err));
-process.on("unhandledRejection", err => console.error("UNHANDLED:", err));
-
 const { twiml } = twilio;
 const VoiceResponse = twiml.VoiceResponse;
 
-// 1. FIX: Use gemini-1.5-pro (High-end and stable)
+// 1. HIGH-END MODEL: Using Gemini 1.5 Pro (The stable flagship)
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
   model: "gemini-1.5-pro", 
-  systemInstruction:
-    "You are a helpful assistant. The user will speak English. You MUST respond ONLY in Hebrew. " +
-    "Keep responses short. Do not use any special formatting, no asterisks, no bolding, no emojis. Just plain Hebrew text."
+  systemInstruction: 
+    "You are a smart assistant. The user will speak English. " +
+    "You must ALWAYS respond in Hebrew. Use professional, natural Hebrew. " +
+    "No asterisks (*), no markdown, no emojis. Just clean Hebrew text."
 });
 
 const app = express();
@@ -27,52 +24,44 @@ app.use(express.json());
 
 const sessions = new Map();
 
-// Helper to clean AI text so Twilio doesn't crash (Fixes Error 13520)
-function cleanText(text) {
+// Helper to clean text so the iw-IL voice doesn't crash (Fixes Error 13520)
+function cleanTextForTwilio(text) {
+  if (!text) return "מצטער, חלה שגיאה.";
   return text.replace(/[*#_]/g, "").trim();
 }
 
-// 2. Initial Call Entry
 app.post("/twiml", (req, res) => {
   const response = new VoiceResponse();
   
+  // SPEAK HEBREW - Using iw-IL as per your documentation
   response.say(
-    { language: "he-IL", voice: "Polly.Carmit" },
-    "שלום. אני מקשיב באנגלית ואענה בעברית."
+    { language: "iw-IL", voice: "Polly.Carmit" },
+    "שלום. אני מופעל על ידי ג'מיני. אני מקשיב באנגלית ואענה לך בעברית."
   );
 
-  // FIX: language must be en-US for Gather to avoid Error 13512
+  // GATHER ENGLISH - Using en-us to ensure Error 13512 is solved
   response.gather({
     input: "speech",
     action: "/gather",
     method: "POST",
     timeout: 5,
     speechTimeout: "auto",
-    language: "en-US" 
+    language: "en-us" 
   });
 
   res.type("text/xml").send(response.toString());
 });
 
-// 3. Processing the AI Logic
 app.post("/gather", async (req, res) => {
   const response = new VoiceResponse();
   const callSid = req.body.CallSid;
   const userText = req.body.SpeechResult;
 
-  // Handle Silence
   if (!userText) {
-    response.say({ language: "he-IL", voice: "Polly.Carmit" }, "לא שמעתי אותך. תוכל לחזור על זה?");
-    response.gather({
-      input: "speech",
-      action: "/gather",
-      method: "POST",
-      language: "en-US"
-    });
+    response.say({ language: "iw-IL", voice: "Polly.Carmit" }, "לא שמעתי, תוכל לחזור על זה?");
+    response.gather({ input: "speech", action: "/gather", method: "POST", language: "en-us" });
     return res.type("text/xml").send(response.toString());
   }
-
-  console.log(`User (English): ${userText}`);
 
   let chat = sessions.get(callSid);
   if (!chat) {
@@ -80,35 +69,32 @@ app.post("/gather", async (req, res) => {
     sessions.set(callSid, chat);
   }
 
-  let reply = "אירעה שגיאה בחיבור למערכת.";
   try {
     const result = await chat.sendMessage(userText);
-    const aiText = result.response.text();
+    const rawReply = result.response.text();
     
-    // FIX: Clean text to prevent Error 13520
-    reply = cleanText(aiText);
-    
-    if (!reply) reply = "מצטער, לא הצלחתי להבין.";
-    console.log(`AI (Hebrew): ${reply}`);
+    // FIX: Clean the text before passing to the Hebrew voice
+    const reply = cleanTextForTwilio(rawReply);
+
+    // SPEAK HEBREW (iw-IL)
+    response.say({ language: "iw-IL", voice: "Polly.Carmit" }, reply);
+
   } catch (e) {
     console.error("Gemini Error:", e);
+    response.say({ language: "iw-IL", voice: "Polly.Carmit" }, "מצטער, המערכת לא זמינה.");
   }
 
-  // Response in Hebrew
-  response.say({ language: "he-IL", voice: "Polly.Carmit" }, reply);
-
-  // Listen again in English
+  // CONTINUE GATHERING IN ENGLISH
   response.gather({
     input: "speech",
     action: "/gather",
     method: "POST",
     timeout: 5,
-    speechTimeout: "auto",
-    language: "en-US"
+    language: "en-us"
   });
 
   res.type("text/xml").send(response.toString());
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Server Running on ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 AI Server Fixed | Output: iw-IL | Port ${PORT}`));
