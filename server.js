@@ -31,7 +31,7 @@ app.post("/twiml", (req, res) => {
 
   const response = new VoiceResponse();
   response.say(
-    { language: "iw-IL" },
+    { language: "iw-IL", voice: "Polly.Carmit" },
     "מחבר אותך לג׳מיני. אפשר לשאול כל שאלה."
   );
   response.gather({
