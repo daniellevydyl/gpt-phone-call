@@ -33,7 +33,7 @@ app.post("/twiml", (req, res) => {
   
   // Carmit is the standard Hebrew voice, but ensures it speaks the intro correctly
   response.say(
-    { language: "he-IL", voice: "Polly.Carmit" },
+    { language: "iw-IL", voice: "Polly.Carmit" },
     "שלום, הגעת לשירות הבינה המלאכותית. אני מקשיב באנגלית ואענה לך בעברית. במה אוכל לעזור?"
   );
 
@@ -57,7 +57,7 @@ app.post("/gather", async (req, res) => {
   const userText = req.body.SpeechResult;
 
   if (!userText) {
-    response.say({ language: "he-IL", voice: "Polly.Carmit" }, "לא שמעתי, תוכל לחזור על כך?");
+    response.say({ language: "iw-IL", voice: "Polly.Carmit" }, "לא שמעתי, תוכל לחזור על כך?");
     response.gather({
       input: "speech",
       action: "/gather",
@@ -85,7 +85,7 @@ app.post("/gather", async (req, res) => {
   }
 
   // Voice output in Hebrew
-  response.say({ language: "he-IL", voice: "Polly.Carmit" }, reply);
+  response.say({ language: "iw-IL", voice: "Polly.Carmit" }, reply);
 
   // Continue gathering input in English
   response.gather({
