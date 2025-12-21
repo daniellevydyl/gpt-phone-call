@@ -46,7 +46,7 @@ app.post("/twiml", (req, res) => {
     method: "POST",
     timeout: 5,
     speechTimeout: "auto",
-    language: "en-us" 
+    language: "en-US" 
   });
 
   res.type("text/xml").send(response.toString());
@@ -59,7 +59,7 @@ app.post("/gather", async (req, res) => {
 
   if (!userText) {
     response.say({ language: "iw-IL", voice: "Polly.Carmit" }, "לא שמעתי, תוכל לחזור על זה?");
-    response.gather({ input: "speech", action: "/gather", method: "POST", language: "en-us" });
+    response.gather({ input: "speech", action: "/gather", method: "POST", language: "en-US" });
     return res.type("text/xml").send(response.toString());
   }
 
@@ -90,7 +90,7 @@ app.post("/gather", async (req, res) => {
     action: "/gather",
     method: "POST",
     timeout: 5,
-    language: "en-us"
+    language: "en-US"
   });
 
   res.type("text/xml").send(response.toString());
