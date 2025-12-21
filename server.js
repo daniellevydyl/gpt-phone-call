@@ -12,13 +12,13 @@ process.on("unhandledRejection", err => console.error("UNHANDLED:", err));
 const { twiml } = twilio;
 const VoiceResponse = twiml.VoiceResponse;
 
-// Using the HIGH-END Pro model
+// FIXED: Using a valid high-end model name
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
-  model: "gemini-2.5-pro-latest", // or "gemini-3-pro-latest" for the absolute frontier
+  model: "gemini-1.5-pro", 
   systemInstruction:
-    "אתה עוזר אישי אינטליגנטי ברמה הגבוהה ביותר. המשתמש מדבר אליך באנגלית. עליך לענות תמיד בעברית רהוטה, טבעית ומדויקת. " +
-    "התשובות צריכות להיות קצרות ולעניין כי זהו שימוש בטלפון. אל תשתמש באימוג'י, סימני כוכביות או פורמט טקסט מיוחד - רק טקסט נקי."
+    "אתה עוזר אישי אינטליגנטי. המשתמש מדבר אנגלית. ענה תמיד בעברית בלבד. " +
+    "תשובות קצרות, ללא סימוני טקסט, ללא כוכביות, וללא אימוג'י."
 });
 
 const app = express();
@@ -27,37 +27,36 @@ app.use(express.json());
 
 const sessions = new Map();
 
-// Initial Entry Point
+// 1. Initial Entry Point
 app.post("/twiml", (req, res) => {
   const response = new VoiceResponse();
   
-  // Carmit is the standard Hebrew voice, but ensures it speaks the intro correctly
+  // FIXED: Changed language to he-IL (Standard for Polly.Carmit)
   response.say(
-    { language: "iw-IL", voice: "Polly.Carmit" },
-    "שלום, הגעת לשירות הבינה המלאכותית. אני מקשיב באנגלית ואענה לך בעברית. במה אוכל לעזור?"
+    { language: "he-IL", voice: "Polly.Carmit" },
+    "שלום, אני מקשיב באנגלית ואענה לך בעברית. במה אוכל לעזור?"
   );
 
-  // Set language to en-US so Twilio's Speech-to-Text listens for English
   response.gather({
     input: "speech",
     action: "/gather",
     method: "POST",
     timeout: 5,
     speechTimeout: "auto",
-    language: "en-US" 
+    language: "en-US" // Listening in English
   });
 
   res.type("text/xml").send(response.toString());
 });
 
-// Processing Loop
+// 2. Processing Loop
 app.post("/gather", async (req, res) => {
   const response = new VoiceResponse();
   const callSid = req.body.CallSid;
   const userText = req.body.SpeechResult;
 
   if (!userText) {
-    response.say({ language: "iw-IL", voice: "Polly.Carmit" }, "לא שמעתי, תוכל לחזור על כך?");
+    response.say({ language: "he-IL", voice: "Polly.Carmit" }, "לא שמעתי, אפשר לחזור על זה?");
     response.gather({
       input: "speech",
       action: "/gather",
@@ -75,19 +74,27 @@ app.post("/gather", async (req, res) => {
     sessions.set(callSid, chat);
   }
 
-  let reply = "סליחה, יש לי בעיה בחיבור.";
+  let reply = "סליחה, יש תקלה קטנה."; 
   try {
     const result = await chat.sendMessage(userText);
     reply = result.response.text();
+    
+    // CLEANUP: Remove any asterisks or special markdown that Gemini often adds
+    // This prevents Error 13520 (Invalid Text)
+    reply = reply.replace(/[*#_]/g, ""); 
+    
+    if (!reply || reply.trim().length === 0) reply = "לא הצלחתי למצוא תשובה.";
+    
     console.log(`Gemini Output (HE): ${reply}`);
   } catch (e) {
     console.error("Gemini Error:", e);
+    reply = "סליחה, המנוע של ג'מיני לא זמין כרגע.";
   }
 
-  // Voice output in Hebrew
-  response.say({ language: "iw-IL", voice: "Polly.Carmit" }, reply);
+  // FIXED: Changed language to he-IL
+  response.say({ language: "he-IL", voice: "Polly.Carmit" }, reply);
 
-  // Continue gathering input in English
+  // Continue gathering
   response.gather({
     input: "speech",
     action: "/gather",
@@ -101,4 +108,4 @@ app.post("/gather", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 High-End Hebrew AI running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
