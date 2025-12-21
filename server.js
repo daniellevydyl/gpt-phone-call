@@ -8,14 +8,13 @@ dotenv.config();
 const { twiml } = twilio;
 const VoiceResponse = twiml.VoiceResponse;
 
-// 1. HIGH-END MODEL: Using Gemini 1.5 Pro (The stable flagship)
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
   model: "gemini-1.5-pro", 
   systemInstruction: 
-    "You are a smart assistant. The user will speak English. " +
-    "You must ALWAYS respond in Hebrew. Use professional, natural Hebrew. " +
-    "No asterisks (*), no markdown, no emojis. Just clean Hebrew text."
+    "You are a helpful assistant. The user will speak English. " +
+    "You must ALWAYS respond in Hebrew. Keep answers short (under 40 words). " +
+    "Do NOT use asterisks, markdown, emojis, or special symbols."
 });
 
 const app = express();
@@ -24,29 +23,36 @@ app.use(express.json());
 
 const sessions = new Map();
 
-// Helper to clean text so the iw-IL voice doesn't crash (Fixes Error 13520)
+// --- 1. CLEANER FUNCTION (Fixes Error 13520) ---
 function cleanTextForTwilio(text) {
-  if (!text) return "מצטער, חלה שגיאה.";
-  return text.replace(/[*#_]/g, "").trim();
+  if (!text) return "מצטער, לא הבנתי.";
+  
+  // Remove *, #, _, emojis, and other markdown symbols
+  let clean = text.replace(/[*#_`~>\[\]()]/g, "")
+                  .replace(/[\u{1F600}-\u{1F6FF}]/gu, "") // Remove emojis
+                  .trim();
+                  
+  return clean;
 }
 
 app.post("/twiml", (req, res) => {
   const response = new VoiceResponse();
   
-  // SPEAK HEBREW - Using iw-IL as per your documentation
+  // <Say>: Uses Amazon Polly -> MUST use 'he-IL'
   response.say(
-    { language: "iw-IL", voice: "Polly.Carmit" },
-    "שלום. אני מופעל על ידי ג'מיני. אני מקשיב באנגלית ואענה לך בעברית."
+    { language: "he-IL", voice: "Polly.Carmit" },
+    "שלום. אני כאן. דבר אליי באנגלית."
   );
 
-  // GATHER ENGLISH - Using en-us to ensure Error 13512 is solved
+  // <Gather>: Uses Google STT -> Defaults to 'iw-IL' (Legacy Hebrew)
+  // If 'en-US' (English) is acceptable for input, keep it 'en-US'.
+  // If you want them to speak HEBREW input, change to 'iw-IL'.
   response.gather({
     input: "speech",
     action: "/gather",
     method: "POST",
     timeout: 5,
-    speechTimeout: "auto",
-    language: "en-US" 
+    language: "en-US" // Keep en-US if user speaks English, use iw-IL if they speak Hebrew
   });
 
   res.type("text/xml").send(response.toString());
@@ -58,7 +64,8 @@ app.post("/gather", async (req, res) => {
   const userText = req.body.SpeechResult;
 
   if (!userText) {
-    response.say({ language: "iw-IL", voice: "Polly.Carmit" }, "לא שמעתי, תוכל לחזור על זה?");
+    // Retry prompt
+    response.say({ language: "he-IL", voice: "Polly.Carmit" }, "לא שמעתי, נסה שוב.");
     response.gather({ input: "speech", action: "/gather", method: "POST", language: "en-US" });
     return res.type("text/xml").send(response.toString());
   }
@@ -73,18 +80,18 @@ app.post("/gather", async (req, res) => {
     const result = await chat.sendMessage(userText);
     const rawReply = result.response.text();
     
-    // FIX: Clean the text before passing to the Hebrew voice
+    // Clean text to prevent "Say: Invalid text" error
     const reply = cleanTextForTwilio(rawReply);
 
-    // SPEAK HEBREW (iw-IL)
-    response.say({ language: "iw-IL", voice: "Polly.Carmit" }, reply);
+    // Speak response (Amazon Polly -> he-IL)
+    response.say({ language: "he-IL", voice: "Polly.Carmit" }, reply);
 
   } catch (e) {
     console.error("Gemini Error:", e);
-    response.say({ language: "iw-IL", voice: "Polly.Carmit" }, "מצטער, המערכת לא זמינה.");
+    response.say({ language: "he-IL", voice: "Polly.Carmit" }, "יש תקלה, נסה שוב.");
   }
 
-  // CONTINUE GATHERING IN ENGLISH
+  // Continue conversation
   response.gather({
     input: "speech",
     action: "/gather",
@@ -97,4 +104,4 @@ app.post("/gather", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 AI Server Fixed | Output: iw-IL | Port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server Running on ${PORT}`));
