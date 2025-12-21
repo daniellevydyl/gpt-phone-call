@@ -16,7 +16,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
   model: "gemini-2.5-flash",
   systemInstruction:
-    "אתה עוזר קולי חכם המדבר בטלפון. ענה תמיד בעברית בלבד. תשובות קצרות, ברורות וטבעיות. ללא אימוג'ים."
+    " אתה עוזר קולי חכם המדבר בטלפון. ענה תמיד בעברית בלבד. תשובות קצרות, ברורות וטבעיות. ללא אימוגים. וללא שום סימונים. אני אדבר באנגלית ואתה תענה בעברית"
 });
 
 const app = express();
@@ -32,7 +32,7 @@ app.post("/twiml", (req, res) => {
   const response = new VoiceResponse();
   response.say(
     { voice: "Polly.Carmit" },
-    "מחבר אותך לג׳מיני. אפשר לשאול כל שאלה."
+    "מחבר אותך לגמיני. אפשר לשאול כל שאלה."
   );
   response.gather({
     input: "speech",
