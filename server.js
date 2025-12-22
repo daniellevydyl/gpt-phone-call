@@ -5,7 +5,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 dotenv.config();
 
-// Crash logging (CRITICAL)
+// Crash logging
 process.on("uncaughtException", err => console.error("UNCAUGHT:", err));
 process.on("unhandledRejection", err => console.error("UNHANDLED:", err));
 
@@ -13,10 +13,21 @@ const { twiml } = twilio;
 const VoiceResponse = twiml.VoiceResponse;
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// ---------------------------------------------------------
+// 🔥 UPDATED SECTION: Added Google Search Tool
+// ---------------------------------------------------------
 const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
-    systemInstruction: "You are a helpful assistant speaking over a phone call act like a regeler gemini intelagent model. Keep replies short'ish , clear, and natural. No emojis."
+    // Ensure you are using the latest version capable of search
+    model: "gemini-2.5-flash", 
+    systemInstruction: "You are a helpful phone assistant. You have access to Google Search, so please check for the latest information (like weather, news, or car specs) when asked. Keep replies short, clear, and natural for a voice call. No emojis.",
+    tools: [
+        {
+            googleSearch: {} // <--- THIS FIXES THE "TRASH" KNOWLEDGE ISSUE
+        }
+    ]
 });
+// ---------------------------------------------------------
 
 const app = express();
 app.use(express.urlencoded({ extended: false }));
