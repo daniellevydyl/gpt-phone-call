@@ -5,6 +5,9 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 dotenv.config();
 
+// 🔒 ONLY THIS PHONE NUMBER CAN CALL
+const ALLOWED_NUMBER = "+972548498889"; // <-- PUT YOUR PHONE NUMBER HERE
+
 // Crash logging
 process.on("uncaughtException", err => console.error("UNCAUGHT:", err));
 process.on("unhandledRejection", err => console.error("UNHANDLED:", err));
@@ -18,12 +21,11 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 // 🔥 UPDATED SECTION: Added Google Search Tool
 // ---------------------------------------------------------
 const model = genAI.getGenerativeModel({
-    // Ensure you are using the latest version capable of search
     model: "gemini-2.5-flash", 
     systemInstruction: "You are a helpful phone assistant. You have access to Google Search, so please check for the latest information (like weather, news, or car specs) when asked. Keep replies short, clear, and natural for a voice call. No emojis.",
     tools: [
         {
-            googleSearch: {} // <--- THIS FIXES THE "TRASH" KNOWLEDGE ISSUE
+            googleSearch: {}
         }
     ]
 });
@@ -38,6 +40,14 @@ const sessions = new Map();
 // 🔥 THIS MUST NEVER FAIL
 app.post("/twiml", (req, res) => {
     console.log("📞 /twiml hit");
+
+    // 🔒 BLOCK ALL CALLERS EXCEPT YOUR NUMBER
+    if (req.body.From !== ALLOWED_NUMBER) {
+        const response = new VoiceResponse();
+        response.reject();
+        return res.type("text/xml").send(response.toString());
+    }
+
     const response = new VoiceResponse();
     
     response.say("Connecting you to Gemini. Ask me anything.");
