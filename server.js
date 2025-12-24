@@ -6,7 +6,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 dotenv.config();
 
 // 🔒 ONLY THIS PHONE NUMBER CAN CALL
-const ALLOWED_NUMBER = "+972548498889"; // <-- PUT YOUR PHONE NUMBER HERE
+const ALLOWED_NUMBER = "+972554402506"; // <-- PUT YOUR PHONE NUMBER HERE
 
 // Crash logging
 process.on("uncaughtException", err => console.error("UNCAUGHT:", err));
